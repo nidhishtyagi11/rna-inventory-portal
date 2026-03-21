@@ -2,7 +2,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export const metadata = {
-  title: 'RecNAcc Ops | Inventory Management',
+  title: 'RecNAcc Inventory Management System',
   description: 'Operational & Inventory Management System for College Fest',
 };
 

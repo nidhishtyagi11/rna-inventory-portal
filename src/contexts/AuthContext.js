@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
       setUser(currentUser);
       if (currentUser) {
         // Master admin override check to bypass database empty state
-        if (currentUser.email === 'f20240952@pilani.bits-pilani.ac.in') {
+        if (currentUser.email === 'f20240952@pilani.bits-pilani.ac.in' || currentUser.email === 'f20240307@pilani.bits-pilani.ac.in') {
           setRole('admin');
         } else {
           try {
