@@ -85,7 +85,7 @@ export default function TicketsPage() {
           <label>Filter Status:</label>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="All">All Tickets</option>
-            <option value="Open">Open (Action Reg'd)</option>
+            <option value="Open">Open (Action Reg&apos;d)</option>
             <option value="Closed">Closed (Resolved)</option>
           </select>
         </div>
