@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, provider, db } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
@@ -49,6 +49,17 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithUsernamePassword = async (username, password) => {
+    if (!username || !password) throw new Error("Empty credentials");
+    const fakeEmail = `${username.toLowerCase().replace(/\s+/g, '')}@recnacc.portal`;
+    try {
+      await signInWithEmailAndPassword(auth, fakeEmail, password);
+    } catch (error) {
+      console.error("Error signing in with username", error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -58,7 +69,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, role, loading, loginWithGoogle, loginWithUsernamePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );
