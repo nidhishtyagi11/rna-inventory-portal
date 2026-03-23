@@ -156,7 +156,7 @@ export default function AdminDashboard() {
   return (
     <Layout adminOnly={true}>
       <div className="dashboard-header">
-        <h1 className="headline">Command Centre</h1>
+        <h1 className="headline">Operations Dashboard</h1>
         <p className="subtitle">APOGEE 2026</p>
       </div>
 
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
       ) : (
         <>
           <div className="kpi-grid">
-            <KPICard title="Active Clubs" value={totalClubsCount} highlight={true} icon="groups" />
+            <KPICard title="Active Clubs" value={totalClubsCount} icon="groups" />
             <KPICard title="Active Tickets" value={activeTicketsCount} icon="confirmation_number" />
             <KPICard title="Full Issuance Rate" value={fullyIssuedClubs} subtitle="Clubs fully issued" />
             <KPICard title="Return Rate" value={fullyReturnedClubs} subtitle="Clubs fully returned" />
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
                   No events found. Waiting for CSV data ingestion.
                 </div>
             ) : (
-                <DataTable columns={columns} data={eventTableData} onRowClick={(row) => router.push(`/admin/events/${row.id}`)} />
+                <DataTable columns={columns} data={eventTableData} onRowClick={(row) => router.push(`/admin/events/${row.id}`)} itemsPerPage={6} />
             )}
           </div>
 

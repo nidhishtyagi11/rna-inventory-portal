@@ -34,7 +34,7 @@ export default function Sidebar() {
           <span className="brand-icon material-symbols-outlined">camping</span>
           <span className="brand">RECNACC</span>
         </div>
-        <span className="brand-sub">COMMAND CENTRE</span>
+        <span className="brand-sub">INVENTORY MANAGEMENT SYSTEM</span>
       </div>
 
       {/* Nav */}
@@ -74,7 +74,7 @@ export default function Sidebar() {
         </div>
 
         <div className="role-row" style={{ justifyContent: 'center', marginTop: '1rem', marginBottom: 0 }}>
-          <span className="level-badge" style={{ fontSize: '0.55rem' }}>MADE WITH LOVE BY (NOT DVM)</span>
+          <span className="level-badge" style={{ fontSize: '0.55rem' }}>Made with &lt;3 by Nidhish</span>
         </div>
       </div>
 

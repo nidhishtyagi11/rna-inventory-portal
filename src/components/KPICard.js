@@ -12,11 +12,11 @@ export default function KPICard({ title, value, subtitle, icon, highlight }) {
 
       <style jsx>{`
         .kpi-card {
-          padding: 1.5rem;
+          padding: 1rem 1.25rem;
           border-radius: 1rem;
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.25rem;
           border: 1px solid var(--outline-variant);
           flex: 1;
           min-width: 200px;
@@ -51,11 +51,11 @@ export default function KPICard({ title, value, subtitle, icon, highlight }) {
         }
         .card-value {
           font-family: 'Space Grotesk', sans-serif;
-          font-size: 2.5rem;
+          font-size: 2rem;
           font-weight: 700;
           letter-spacing: -0.02em;
           line-height: 1;
-          margin: 0.25rem 0;
+          margin: 0.15rem 0;
         }
         .card-subtitle {
           font-size: 0.75rem;
