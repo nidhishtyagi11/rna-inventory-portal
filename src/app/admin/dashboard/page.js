@@ -232,7 +232,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               
-              <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+              <div style={{display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 1}}>
                 {viewMode === 'clubs' && (
                   <div className="status-filters">
                     {['Fully Issued', 'Partially Issued', 'Not Issued', 'N/A'].map(status => (
@@ -403,8 +403,8 @@ export default function AdminDashboard() {
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
         .table-full-width { margin-bottom: 2.5rem; border-bottom: 1px solid var(--surface-container); padding-bottom: 2rem; }
         
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--surface-container-high); }
-        .badge-outline { font-size: 0.75rem; color: var(--outline); font-weight: 600; padding: 0.25rem 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Space Grotesk', sans-serif;}
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--surface-container-high); flex-wrap: nowrap; overflow-x: auto; }
+        .badge-outline { font-size: 0.75rem; color: var(--outline); font-weight: 600; padding: 0.25rem 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Space Grotesk', sans-serif; white-space: nowrap; }
         
         /* Dashboard Toggle & Input Styles */
         .toggle-group {
@@ -419,7 +419,7 @@ export default function AdminDashboard() {
           border: none;
           background: transparent;
           color: var(--on-surface-variant);
-          padding: 0.5rem 1.25rem;
+          padding: 0.4rem 1rem;
           border-radius: 1.5rem;
           cursor: pointer;
           font-family: 'Space Grotesk', sans-serif;
@@ -427,6 +427,7 @@ export default function AdminDashboard() {
           font-size: 0.875rem;
           text-transform: uppercase;
           transition: all 0.2s ease;
+          white-space: nowrap;
         }
         .toggle-btn.active {
           background: var(--primary);
@@ -447,7 +448,7 @@ export default function AdminDashboard() {
           padding: 0.5rem 1rem;
           font-family: 'Inter', sans-serif;
           outline: none;
-          min-width: 200px;
+          min-width: 150px;
           transition: border-color 0.2s;
         }
         .dashboard-input:focus, .dashboard-select:focus {
@@ -466,7 +467,7 @@ export default function AdminDashboard() {
         .status-filters {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.5rem;
           margin-right: 0.5rem;
         }
         .status-checkbox {
@@ -478,6 +479,7 @@ export default function AdminDashboard() {
           cursor: pointer;
           font-family: 'Inter', sans-serif;
           user-select: none;
+          white-space: nowrap;
         }
         .status-checkbox input {
           accent-color: var(--primary);
