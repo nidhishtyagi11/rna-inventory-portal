@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export default function Sidebar() {
+export default function Sidebar({ isMobileOpen, onClose }) {
   const { role, logout, user } = useAuth();
   const pathname = usePathname();
 
@@ -26,12 +26,17 @@ export default function Sidebar() {
   const links = role === 'admin' ? adminLinks : userLinks;
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isMobileOpen ? 'open' : ''}`}>
       {/* Header */}
       <div className="sidebar-header">
-        <div className="brand-row">
-          <span className="brand-icon material-symbols-outlined">camping</span>
-          <span className="brand">RECNACC</span>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <div className="brand-row">
+            <span className="brand-icon material-symbols-outlined">camping</span>
+            <span className="brand">RECNACC</span>
+          </div>
+          <button className="mobile-close-btn" onClick={onClose} aria-label="Close menu">
+            <span className="material-symbols-outlined" style={{fontSize: '1.2rem'}}>close</span>
+          </button>
         </div>
         <span className="brand-sub">INVENTORY MANAGEMENT SYSTEM</span>
       </div>
@@ -98,6 +103,7 @@ export default function Sidebar() {
           top: 0;
           overflow-y: auto;
           z-index: 100;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* --- Header --- */
@@ -275,6 +281,36 @@ export default function Sidebar() {
           overflow: hidden;
           text-overflow: ellipsis;
           margin-top: 0.1rem;
+        }
+
+        .mobile-close-btn {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .sidebar {
+            transform: translateX(-100%);
+          }
+          .sidebar.open {
+            transform: translateX(0);
+            box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+          }
+          .mobile-close-btn {
+            display: flex;
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: var(--on-surface-variant);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .mobile-close-btn:active {
+            background: rgba(255,255,255,0.1);
+          }
         }
       `}</style>
     </aside>
