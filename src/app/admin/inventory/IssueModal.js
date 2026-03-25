@@ -2,19 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
-import { updateStock, addTransaction, getEvents } from '@/lib/firestore';
+import { updateStock, addTransaction, getClubs } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
   const [quantity, setQuantity] = useState('');
-  const [selectedEventId, setSelectedEventId] = useState('');
-  const [events, setEvents] = useState([]);
+  const [selectedClubId, setSelectedClubId] = useState('');
+  const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
-      getEvents().then(data => setEvents(data));
+      getClubs().then(data => setClubs(data));
     }
   }, [isOpen]);
 
@@ -39,9 +39,9 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
       return;
     }
 
-    const event = events.find(ev => ev.id === selectedEventId);
-    if (!event) {
-      alert("Please select a valid event.");
+    const club = clubs.find(c => c.id === selectedClubId);
+    if (!club) {
+      alert("Please select a valid club.");
       setLoading(false);
       return;
     }
@@ -52,24 +52,21 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
         issuedStock: (item.issuedStock || 0) + qty
       });
 
-      // 2. Add transaction linked to event (inherits location)
+      // 2. Add transaction linked to club
       await addTransaction({
         type: 'Issuance',
         itemName: item.itemName,
         itemId: item.id,
         quantity: qty,
-        eventId: event.id,
-        eventName: event.eventName,
-        clubId: event.clubId,
-        clubName: event.clubName,
-        location: event.location, // Auto-derived from event
+        clubId: club.id,
+        clubName: club.name,
         userId: user?.uid,
         userName: user?.displayName,
         day: 'Day 1' // Simplified. In a real app, calculate current fest day
       });
 
       setQuantity('');
-      setSelectedEventId('');
+      setSelectedClubId('');
       onStockIssued();
       onClose();
     } catch (err) {
@@ -91,20 +88,19 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
         </div>
 
         <div className="form-group">
-           <label>Select Event</label>
+           <label>Select Club</label>
            <select 
-             value={selectedEventId} 
-             onChange={(e) => setSelectedEventId(e.target.value)}
+             value={selectedClubId} 
+             onChange={(e) => setSelectedClubId(e.target.value)}
              required
            >
-             <option value="" disabled>-- Choose an Event --</option>
-             {events.map(ev => (
-               <option key={ev.id} value={ev.id}>
-                 {ev.clubName} - {ev.eventName} (Loc: {ev.location})
+             <option value="" disabled>-- Choose a Club --</option>
+             {clubs.map(c => (
+               <option key={c.id} value={c.id}>
+                 {c.name}
                </option>
              ))}
            </select>
-           <p className="help-text">Location is automatically inherited from the selected event.</p>
         </div>
 
         <div className="form-group">
@@ -124,7 +120,7 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
         <div className="form-actions">
            <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
            <button type="submit" className="btn-primary primary-gradient" disabled={loading || available === 0}>
-             {loading ? 'Issuing...' : 'Issue to Event'}
+             {loading ? 'Issuing...' : 'Issue to Club'}
            </button>
         </div>
       </form>

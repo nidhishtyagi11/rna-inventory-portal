@@ -4,28 +4,42 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import DataTable from '@/components/DataTable';
 import Badge from '@/components/Badge';
-import { getTransactions } from '@/lib/firestore';
+import { getTransactions, undoTransaction } from '@/lib/firestore';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('All');
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const data = await getTransactions();
-        // Sort newest first
-        data.sort((a, b) => b.timestamp - a.timestamp);
-        setTransactions(data);
-      } catch (err) {
-        console.error("Error fetching transactions", err);
-      } finally {
-        setLoading(false);
-      }
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const data = await getTransactions();
+      // Sort newest first
+      data.sort((a, b) => b.timestamp - a.timestamp);
+      setTransactions(data);
+    } catch (err) {
+      console.error("Error fetching transactions", err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  const handleUndo = async (txId) => {
+    if (confirm("Are you sure you want to undo this transaction? The inventory quantities will be reversed.")) {
+      try {
+        await undoTransaction(txId);
+        fetchData();
+      } catch(err) {
+        console.error(err);
+        alert("Failed to undo transaction");
+      }
+    }
+  };
 
   const filteredTx = filterType === 'All' 
     ? transactions 
@@ -35,6 +49,7 @@ export default function TransactionsPage() {
     { 
       header: 'Type', 
       cell: (row) => {
+        if (row.isUndone) return <Badge variant="default">Undone</Badge>;
         let variant = 'default';
         if (row.type === 'Issuance') variant = 'info';
         if (row.type === 'Incoming') variant = 'primary';
@@ -42,18 +57,42 @@ export default function TransactionsPage() {
         return <Badge variant={variant}>{row.type}</Badge>;
       }
     },
-    { header: 'Item Name', accessorKey: 'itemName' },
-    { header: 'Qty', accessorKey: 'quantity', align: 'right' },
     { 
-      header: 'Target / Event', 
-      cell: (row) => row.clubName ? `${row.clubName} (${row.eventName})` : 'System / Base'
+      header: 'Item Name', 
+      accessorKey: 'itemName',
+      cell: (row) => <span style={{ opacity: row.isUndone ? 0.5 : 1, textDecoration: row.isUndone ? 'line-through' : 'none' }}>{row.itemName}</span>
     },
-    { header: 'Location', accessorKey: 'location' },
+    { 
+      header: 'Qty', 
+      accessorKey: 'quantity',
+      align: 'right',
+      cell: (row) => <span style={{ opacity: row.isUndone ? 0.5 : 1, textDecoration: row.isUndone ? 'line-through' : 'none' }}>{row.quantity}</span>
+    },
+    { 
+      header: 'Club', 
+      cell: (row) => <span style={{ opacity: row.isUndone ? 0.5 : 1 }}>{row.clubName || 'System / Incoming'}</span>
+    },
     { 
       header: 'Timestamp', 
-      cell: (row) => row.timestamp?.toDate ? row.timestamp.toDate().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'N/A' 
+      cell: (row) => <span style={{ opacity: row.isUndone ? 0.5 : 1 }}>{row.timestamp?.toDate ? row.timestamp.toDate().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'N/A'}</span>
     },
-    { header: 'Authorized By', accessorKey: 'userName' },
+    { 
+      header: 'Authorized By', 
+      accessorKey: 'userName',
+      cell: (row) => <span style={{ opacity: row.isUndone ? 0.5 : 1 }}>{row.userName}</span>
+    },
+    {
+      header: '',
+      align: 'right',
+      cell: (row) => (
+        !row.isUndone && (
+          <button onClick={() => handleUndo(row.id)} className="action-pill pill-undo" title="Undo Transaction">
+            <span className="material-symbols-outlined icon-small">undo</span>
+            Undo
+          </button>
+        )
+      )
+    }
   ];
 
   return (
@@ -116,6 +155,46 @@ export default function TransactionsPage() {
         }
         select:focus {
           border-color: var(--primary);
+        }
+        }
+      `}</style>
+      <style jsx global>{`
+        .action-pill {
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 28px;
+          height: 28px;
+          gap: 0.375rem;
+          padding: 0 0.75rem;
+          border-radius: 0.375rem;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          transition: transform 0.15s, opacity 0.15s, background-color 0.15s;
+          border: none;
+          line-height: normal;
+        }
+        .action-pill:hover {
+          opacity: 0.85;
+          transform: translateY(-1px);
+        }
+        .pill-undo {
+          background-color: transparent;
+          color: var(--error);
+          border: 1px solid rgba(255, 180, 171, 0.4);
+        }
+        .pill-undo:hover {
+          background-color: rgba(255, 180, 171, 0.1);
+        }
+        .icon-small {
+          font-size: 1rem;
+          display: flex;
+          align-items: center;
         }
       `}</style>
     </Layout>

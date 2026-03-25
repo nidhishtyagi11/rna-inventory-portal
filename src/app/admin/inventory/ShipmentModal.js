@@ -191,8 +191,18 @@ export default function ShipmentModal({ isOpen, onClose, inventoryItems, onShipm
         button { padding: 0.625rem 1.25rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
         .fade-btn { background: transparent; border: 1px solid var(--outline-variant); color: var(--on-surface); }
         .fade-btn:hover { background: var(--surface-container-high); border-color: var(--outline); }
-        .btn-primary { border: none; color: white; }
-        .primary-gradient { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+        .btn-primary { border: none; }
+        .primary-gradient { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #040616; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+        
+        /* Hide spin buttons for number inputs */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
       `}</style>
     </Modal>
   );

@@ -63,8 +63,12 @@ h1, h2, h3, h4, h5, h6, .headline {
 }
 
 .primary-gradient {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
-  color: var(--on-primary-container);
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #040616 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  border: none;
 }
 
 /* Table resets */
