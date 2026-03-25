@@ -110,8 +110,40 @@ export async function getTransactions() {
 export async function addTransaction(data) {
   await addDoc(collection(db, 'transactions'), {
     ...data,
-    timestamp: serverTimestamp()
+    timestamp: serverTimestamp(),
+    isUndone: false
   });
+}
+
+export async function undoTransaction(txId) {
+  const txRef = doc(db, 'transactions', txId);
+  const txSnap = await getDoc(txRef);
+  if (!txSnap.exists()) return;
+  const tx = txSnap.data();
+  if (tx.isUndone) return;
+
+  // Mark as undone
+  await updateDoc(txRef, { isUndone: true, undoneAt: serverTimestamp() });
+
+  // Revert stock
+  if (tx.itemId) {
+    const invRef = doc(db, 'inventoryStock', tx.itemId);
+    const invSnap = await getDoc(invRef);
+    if (invSnap.exists()) {
+      const inv = invSnap.data();
+      let updates = {};
+      if (tx.type === 'Issuance') {
+        updates.issuedStock = Math.max(0, (inv.issuedStock || 0) - tx.quantity);
+      } else if (tx.type === 'Return') {
+        updates.returnedStock = Math.max(0, (inv.returnedStock || 0) - tx.quantity);
+      } else if (tx.type === 'Incoming') {
+        updates.totalStock = Math.max(0, (inv.totalStock || 0) - tx.quantity);
+      }
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(invRef, updates);
+      }
+    }
+  }
 }
 
 
@@ -136,4 +168,25 @@ export async function updateTicketStatus(ticketId, status) {
 
 export async function deleteTicket(ticketId) {
   await deleteDoc(doc(db, 'tickets', ticketId));
+}
+
+// --- Danger Zone: System Reset ---
+export async function globalSystemReset() {
+  // 1. Wipe out all transactions
+  const txSnap = await getDocs(collection(db, 'transactions'));
+  const txDeletions = txSnap.docs.map(t => deleteDoc(doc(db, 'transactions', t.id)));
+  
+  // 2. Clear all events
+  const evSnap = await getDocs(collection(db, 'events'));
+  const evDeletions = evSnap.docs.map(e => deleteDoc(doc(db, 'events', e.id)));
+
+  // 3. Clear all clubs
+  const clubSnap = await getDocs(collection(db, 'clubs'));
+  const clubDeletions = clubSnap.docs.map(c => deleteDoc(doc(db, 'clubs', c.id)));
+  
+  // 4. Completely wipe inventory tracking so they hide until next CSV ingestion
+  const invSnap = await getDocs(collection(db, 'inventoryStock'));
+  const invDeletions = invSnap.docs.map(i => deleteDoc(doc(db, 'inventoryStock', i.id)));
+
+  await Promise.all([...txDeletions, ...evDeletions, ...clubDeletions, ...invDeletions]);
 }

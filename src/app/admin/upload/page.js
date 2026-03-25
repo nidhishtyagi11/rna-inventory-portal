@@ -4,25 +4,44 @@ import { useState } from 'react';
 import Layout from '@/components/Layout';
 import Papa from 'papaparse';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { globalSystemReset } from '@/lib/firestore';
 
 // These are the exact column headers expected in the CSV.
-// Quantities for each inventory item must be listed under the item's name.
+// Quantities for each inventory item are club-level attributes.
 const INVENTORY_ITEMS = [
   'Mattresses', 'Quilts', 'Tables', 'Tablecloths', 'Fans', 'Chairs',
   'Extension Boxes', 'LED Lights', 'Red Carpets', 'Green Carpets',
   'White Curtains', 'Coloured Curtains', 'Buckets', 'Mugs'
 ];
 
+// Maximum number of events we support per club in the CSV schema
+const MAX_EVENTS = 10;
+
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [previewData, setPreviewData] = useState([]);
-  const [headers, setHeaders] = useState([]);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // System Reset States
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPasswordText, setResetPasswordText] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Detect how many event columns exist in the CSV based on "Event N" header pattern
+  const detectEventColumns = (fields) => {
+    let maxN = 0;
+    fields.forEach(f => {
+      const m = f.trim().match(/^Event (\d+)$/i);
+      if (m) maxN = Math.max(maxN, parseInt(m[1]));
+    });
+    return maxN;
+  };
 
   const parseFile = (f) => {
     setFile(f);
@@ -33,19 +52,20 @@ export default function UploadPage() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        setHeaders(results.meta.fields || []);
         setPreviewData(results.data);
-        validateData(results.data);
+        validateData(results.data, results.meta.fields || []);
       }
     });
   };
 
-  const validateData = (rows) => {
+  const validateData = (rows, fields) => {
     const errs = [];
+    const eventCount = detectEventColumns(fields);
+    if (eventCount === 0) errs.push('No "Event N / Location N" columns found. At minimum, add "Event 1" and "Location 1" columns.');
     rows.forEach((row, i) => {
       if (!row['Club Name']) errs.push(`Row ${i + 2}: Missing "Club Name"`);
-      if (!row['Event Name']) errs.push(`Row ${i + 2}: Missing "Event Name"`);
-      if (!row['Location']) errs.push(`Row ${i + 2}: Missing "Location"`);
+      if (!row['Event 1']) errs.push(`Row ${i + 2}: Missing "Event 1"`);
+      if (!row['Location 1']) errs.push(`Row ${i + 2}: Missing "Location 1"`);
     });
     setErrors(errs);
   };
@@ -85,34 +105,28 @@ export default function UploadPage() {
         }
       }
 
-      // --- Step 2: Process each row into a Club + Event document ---
+      // --- Step 2: Process each row as a single Club ---
       const clubsRef = collection(db, 'clubs');
       const eventsRef = collection(db, 'events');
 
-      // Cache clubs to avoid duplicates
-      const clubCache = {};
-      const clubsSnap = await getDocs(clubsRef);
-      clubsSnap.docs.forEach(d => { clubCache[d.data().name] = d.id; });
+      // Detect max event count by scanning ALL rows (not just first),
+      // to handle clubs with more events that appear later in the CSV.
+      const allFieldSets = previewData.map(r => Object.keys(r));
+      const mergedFields = [...new Set(allFieldSets.flat())];
+      const eventCount = detectEventColumns(mergedFields);
 
+      // Pre-load existing clubs to allow upsert (avoid duplicates on re-upload)
+      const existingClubsSnap = await getDocs(clubsRef);
+      const existingClubsByName = {};
+      existingClubsSnap.docs.forEach(d => { existingClubsByName[d.data().name] = d.id; });
+
+      let clubsCreated = 0;
       let eventsCreated = 0;
 
       for (const row of previewData) {
-        if (!row['Event Name'] || !row['Club Name']) continue;
+        if (!row['Club Name']) continue;
 
-        // 2a. Create or reuse club
-        let clubId = clubCache[row['Club Name']];
-        if (!clubId) {
-          const clubDoc = await addDoc(clubsRef, {
-            name: row['Club Name'],
-            coordinatorName: row['Coordinator Name'] || '',
-            contact: row['Contact'] || '',
-            email: row['Email'] || ''
-          });
-          clubId = clubDoc.id;
-          clubCache[row['Club Name']] = clubId;
-        }
-
-        // 2b. Build inventoryRequests map from CSV columns
+        // 2a. Build inventory requests (club-level)
         const inventoryRequests = {};
         for (const item of INVENTORY_ITEMS) {
           const val = parseInt(row[item], 10);
@@ -121,28 +135,59 @@ export default function UploadPage() {
           }
         }
 
-        // 2c. Create event linked to club
-        await addDoc(eventsRef, {
-          clubId,
-          clubName: row['Club Name'],
+        const clubPayload = {
+          name: row['Club Name'],
           coordinatorName: row['Coordinator Name'] || '',
           contact: row['Contact'] || '',
-          eventName: row['Event Name'],
-          location: row['Location'],
+          email: row['Email'] || '',
+          username: row['Username'] || '',
+          password: row['Password'] || '',
           specialRequirements: row['Special Requirements'] || '',
           notes: row['Notes'] || '',
           inventoryRequests,
           createdAt: new Date().toISOString()
-        });
+        };
 
-        eventsCreated++;
+        // 2b. Upsert club — reuse existing document if a club with this name exists
+        let clubId = existingClubsByName[row['Club Name']];
+        if (clubId) {
+          // Update existing club document in place
+          await updateDoc(doc(db, 'clubs', clubId), clubPayload);
+          // Delete old events for this club so we recreate them cleanly
+          const oldEvSnap = await getDocs(eventsRef);
+          const delOld = oldEvSnap.docs
+            .filter(d => d.data().clubId === clubId)
+            .map(d => deleteDoc(doc(db, 'events', d.id)));
+          await Promise.all(delOld);
+        } else {
+          const clubDoc = await addDoc(clubsRef, clubPayload);
+          clubId = clubDoc.id;
+          existingClubsByName[row['Club Name']] = clubId;
+          clubsCreated++;
+        }
+
+        // 2c. Create each event linked to this club
+        for (let n = 1; n <= eventCount; n++) {
+          const eventName = row[`Event ${n}`];
+          const location = row[`Location ${n}`];
+          if (!eventName || !eventName.trim()) continue; // skip empty event slots
+
+          await addDoc(eventsRef, {
+            clubId,
+            clubName: row['Club Name'],
+            eventName: eventName.trim(),
+            location: location ? location.trim() : '',
+            createdAt: new Date().toISOString()
+          });
+          eventsCreated++;
+        }
       }
 
       setSuccess(true);
       setPreviewData([]);
       setFile(null);
       setFileName('');
-      alert(`✅ Successfully imported ${eventsCreated} events from CSV!`);
+      alert(`✅ Successfully imported ${clubsCreated} clubs and ${eventsCreated} events from CSV!`);
     } catch (err) {
       console.error("CSV upload error:", err);
       alert(`❌ Import failed: ${err.message}`);
@@ -151,36 +196,74 @@ export default function UploadPage() {
     }
   };
 
+  const handleSystemReset = async (e) => {
+    e.preventDefault();
+    if (resetPasswordText !== 'SAC24@BITS') {
+      setResetError('Incorrect system password.');
+      return;
+    }
+    setResetError('');
+    setIsResetting(true);
+    try {
+      await globalSystemReset();
+      setShowResetModal(false);
+      setResetPasswordText('');
+      alert('✅ System format complete. Environment restored to baseline parameters.');
+    } catch (err) {
+      console.error(err);
+      setResetError('Fatal reset sequence error.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Detect how many events ANY row has (scan ALL rows, not just first)
+  const allPreviewFields = [...new Set(previewData.flatMap(r => Object.keys(r)))];
+  const previewEventCount = detectEventColumns(allPreviewFields); // No cap - show all event columns
+
   return (
     <Layout adminOnly={true}>
-      <div className="page-header">
+      <div className="page-header header-spread">
         <div>
           <h1 className="headline">Data Initialization</h1>
-          <p className="subtitle">Import events and inventory requests via CSV</p>
+          <p className="subtitle">Import clubs and events via CSV — one row per club</p>
         </div>
+        <button 
+          className="system-reset-btn" 
+          onClick={() => { setShowResetModal(true); setResetError(''); setResetPasswordText(''); }}
+        >
+          <span className="material-symbols-outlined">warning</span>
+          System Reset
+        </button>
       </div>
 
       {/* Schema Reference */}
       <div className="schema-card glass-panel">
         <h3 className="schema-title">
           <span className="material-symbols-outlined">schema</span>
-          Expected CSV Columns
+          Expected CSV Structure (One Row = One Club)
         </h3>
         <div className="schema-grid">
           <div className="schema-group">
             <span className="schema-label">Required</span>
-            {['Club Name', 'Event Name', 'Location'].map(col => (
+            {['Club Name', 'Event 1', 'Location 1'].map(col => (
               <span key={col} className="schema-tag required">{col}</span>
             ))}
           </div>
           <div className="schema-group">
-            <span className="schema-label">Optional</span>
-            {['Coordinator Name', 'Contact', 'Email', 'Special Requirements', 'Notes'].map(col => (
+            <span className="schema-label">Multi-Event (repeat N times)</span>
+            {['Event N', 'Location N'].map(col => (
               <span key={col} className="schema-tag optional">{col}</span>
             ))}
           </div>
           <div className="schema-group">
-            <span className="schema-label">Inventory Items (numeric)</span>
+            <span className="schema-label">Club Attributes (optional)</span>
+            {['Coordinator Name', 'Contact', 'Email', 'Username', 'Password', 'Special Requirements', 'Notes'].map(col => (
+              <span key={col} className="schema-tag optional">{col}</span>
+            ))}
+          </div>
+          <div className="schema-group">
+            <span className="schema-label">Inventory Items (numeric, club-level)</span>
             {INVENTORY_ITEMS.map(item => (
               <span key={item} className="schema-tag item">{item}</span>
             ))}
@@ -197,7 +280,7 @@ export default function UploadPage() {
       >
         <span className="material-symbols-outlined upload-icon">cloud_upload</span>
         <h3>{fileName || 'Drag & drop your CSV here'}</h3>
-        <p>{fileName ? `${previewData.length} rows detected` : 'or click to browse your computer'}</p>
+        <p>{fileName ? `${previewData.length} clubs detected` : 'or click to browse your computer'}</p>
         <label className="browse-btn primary-gradient">
           Browse File
           <input type="file" accept=".csv" onChange={handleFileInput} hidden />
@@ -222,7 +305,7 @@ export default function UploadPage() {
         <div className="preview-panel">
           <div className="preview-header">
             <h3 className="headline" style={{fontSize: '1.125rem'}}>
-              Preview — {previewData.length} Records
+              Preview — {previewData.length} Clubs
             </h3>
             <button
               className="primary-gradient confirm-btn"
@@ -249,8 +332,9 @@ export default function UploadPage() {
                 <tr>
                   <th>#</th>
                   <th>Club Name</th>
-                  <th>Event Name</th>
-                  <th>Location</th>
+                  {Array.from({length: previewEventCount}, (_, i) => (
+                    <th key={i}>Event {i + 1} / Location</th>
+                  ))}
                   <th>Special Req</th>
                   <th>Items Requested</th>
                 </tr>
@@ -261,13 +345,19 @@ export default function UploadPage() {
                     const v = parseInt(row[item], 10);
                     return sum + (isNaN(v) || v <= 0 ? 0 : 1);
                   }, 0);
-                  const hasError = !row['Club Name'] || !row['Event Name'] || !row['Location'];
+                  const hasError = !row['Club Name'] || !row['Event 1'];
                   return (
                     <tr key={idx} className={hasError ? 'row-error' : ''}>
                       <td className="row-num">{idx + 1}</td>
                       <td>{row['Club Name'] || <span className="missing">—</span>}</td>
-                      <td>{row['Event Name'] || <span className="missing">—</span>}</td>
-                      <td>{row['Location'] || <span className="missing">—</span>}</td>
+                      {Array.from({length: previewEventCount}, (_, i) => (
+                        <td key={i}>
+                          <div style={{lineHeight: 1.3}}>
+                            <div>{row[`Event ${i+1}`] || <span className="missing">—</span>}</div>
+                            {row[`Location ${i+1}`] && <div style={{fontSize:'0.7rem', color:'var(--outline)'}}>{row[`Location ${i+1}`]}</div>}
+                          </div>
+                        </td>
+                      ))}
                       <td>
                         <span className={`req-badge ${row['Special Requirements'] && row['Special Requirements'].trim() !== '' && row['Special Requirements'].trim().toLowerCase() !== 'no' ? 'yes' : 'no'}`}>
                           {row['Special Requirements'] && row['Special Requirements'].trim() !== '' && row['Special Requirements'].trim().toLowerCase() !== 'no' 
@@ -295,8 +385,43 @@ export default function UploadPage() {
         </div>
       )}
 
+      {/* System Reset Modal */}
+      {showResetModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel">
+            <h2 className="headline" style={{fontSize: '1.25rem', color: 'var(--error)'}}>DANGER: SYSTEM RESET</h2>
+            <p className="subtitle" style={{marginBottom: '1.5rem', lineHeight: '1.4'}}>
+               This action will irrevocably wipe all transaction records, reset physical inventory to baseline levels, wipe all special requirements, and clear existing ingested CSV maps.
+            </p>
+            <form onSubmit={handleSystemReset}>
+              <div className="input-group">
+                <label>System Administrator Passcode</label>
+                <input 
+                  type="password" 
+                  autoFocus
+                  required
+                  placeholder="Enter override password"
+                  value={resetPasswordText} 
+                  onChange={(e) => setResetPasswordText(e.target.value)} 
+                />
+              </div>
+              {resetError && <p className="error-text">{resetError}</p>}
+              <div className="modal-actions" style={{marginTop: '1.5rem'}}>
+                <button type="button" className="secondary-gradient btn" onClick={() => setShowResetModal(false)} disabled={isResetting}>Cancel</button>
+                <button type="submit" className="danger-btn btn" disabled={isResetting}>
+                  {isResetting ? 'Formatting...' : 'EXECUTE FORMAT'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         .page-header { margin-bottom: 2rem; }
+        .header-spread { display: flex; justify-content: space-between; align-items: flex-start; }
+        .system-reset-btn { background: rgba(242,139,130,0.1); color: var(--error); border: 1px solid rgba(242,139,130,0.3); padding: 0.5rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-family: 'Space Grotesk', sans-serif; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; }
+        .system-reset-btn:hover { background: rgba(242,139,130,0.2); border-color: var(--error); box-shadow: 0 0 10px rgba(242,139,130,0.2); }
         .subtitle { color: var(--on-surface-variant); font-size: 0.875rem; margin-top: 0.25rem; }
 
         /* Schema */
@@ -319,7 +444,7 @@ export default function UploadPage() {
         }
         .schema-grid { display: flex; flex-direction: column; gap: 0.75rem; }
         .schema-group { display: flex; flex-wrap: wrap; gap: 0.375rem; align-items: center; }
-        .schema-label { font-size: 0.65rem; color: var(--outline); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 0.25rem; min-width: 100px; }
+        .schema-label { font-size: 0.65rem; color: var(--outline); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 0.25rem; min-width: 140px; }
         .schema-tag { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-family: 'Space Grotesk', monospace; }
         .schema-tag.required { background: rgba(242,139,130,0.12); color: #f28b82; border: 1px solid rgba(242,139,130,0.2); }
         .schema-tag.optional { background: rgba(255,255,255,0.05); color: var(--outline); border: 1px solid var(--surface-container-high); }
@@ -426,6 +551,19 @@ export default function UploadPage() {
           font-size: 0.875rem;
         }
         .success-banner a { color: var(--primary); text-decoration: underline; }
+
+        /* Modal Subsystems */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: var(--surface-container-low); padding: 2rem; border-radius: 1rem; width: 100%; max-width: 400px; border: 1px solid var(--error); box-shadow: 0 0 30px rgba(242, 139, 130, 0.15); }
+        .input-group label { display: block; font-size: 0.75rem; color: var(--outline); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em; }
+        .input-group input { width: 100%; padding: 0.75rem; background: var(--surface-container-high); border: 1px solid var(--outline-variant); border-radius: 0.5rem; color: var(--on-surface); font-family: 'Inter', sans-serif; transition: border-color 0.2s; }
+        .input-group input:focus { outline: none; border-color: var(--error); }
+        .error-text { color: var(--error); font-size: 0.75rem; margin-top: 0.5rem; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
+        .btn { padding: 0.625rem 1rem; border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; border: none; }
+        .btn:disabled { opacity: 0.5; }
+        .secondary-gradient { background: var(--surface-container-high); color: var(--on-surface); border: 1px solid var(--outline-variant); }
+        .danger-btn { background: #5c1813; color: #ffb4ab; border: 1px solid #ffb4ab; }
 
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 0.8s linear infinite; }

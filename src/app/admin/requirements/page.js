@@ -4,30 +4,30 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
-import { getEvents, updateEvent } from '@/lib/firestore';
+import { getClubs, updateClub } from '@/lib/firestore';
 
 export default function RequirementsPage() {
-  const [allEventsList, setAllEventsList] = useState([]);
-  const [events, setEvents] = useState([]);
+  const [allClubs, setAllClubs] = useState([]);
+  const [clubs, setClubs] = useState([]); // clubs with special requirements
   const [loading, setLoading] = useState(true);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedClubName, setSelectedClubName] = useState('');
-  const [selectedEventId, setSelectedEventId] = useState('');
+  const [selectedClubId, setSelectedClubId] = useState('');
   const [newRequirementText, setNewRequirementText] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
   async function fetchData() {
     try {
-      const allEvents = await getEvents();
-      setAllEventsList(allEvents);
-      const reqEvents = allEvents.filter(ev => 
-        (ev.specialRequirements && ev.specialRequirements.trim() !== '' && ev.specialRequirements.trim().toLowerCase() !== 'no')
+      const allClubData = await getClubs();
+      setAllClubs(allClubData);
+      // Only show clubs that have a meaningful special requirement
+      const withReq = allClubData.filter(c =>
+        c.specialRequirements && c.specialRequirements.trim() !== '' && c.specialRequirements.trim().toLowerCase() !== 'no'
       );
-      setEvents(reqEvents);
+      setClubs(withReq);
     } catch (err) {
-      console.error("Error fetching events", err);
+      console.error('Error fetching clubs', err);
     } finally {
       setLoading(false);
     }
@@ -40,43 +40,36 @@ export default function RequirementsPage() {
   const handleAddRequirement = async (e) => {
     e.preventDefault();
     setActionLoading(true);
-    if (!selectedEventId || !newRequirementText.trim()) {
-      alert("Please select an event and enter the requirement details.");
+    if (!selectedClubId || !newRequirementText.trim()) {
+      alert('Please select a club and enter the requirement details.');
       setActionLoading(false);
       return;
     }
-    
     try {
-      await updateEvent(selectedEventId, { specialRequirements: newRequirementText.trim() });
+      await updateClub(selectedClubId, { specialRequirements: newRequirementText.trim() });
       setIsModalOpen(false);
-      setSelectedClubName('');
-      setSelectedEventId('');
+      setSelectedClubId('');
       setNewRequirementText('');
       await fetchData();
     } catch (err) {
-      console.error("Failed to add special requirement", err);
-      alert("Failed to add special requirement");
+      console.error('Failed to add special requirement', err);
+      alert('Failed to add special requirement');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleToggleDone = async (eventId, isDone) => {
+  const handleToggleDone = async (clubId, isDone) => {
     try {
-      await updateEvent(eventId, { specialRequirementDone: isDone });
-      setEvents(events.map(ev => ev.id === eventId ? { ...ev, specialRequirementDone: isDone } : ev));
+      await updateClub(clubId, { specialRequirementDone: isDone });
+      setClubs(clubs.map(c => c.id === clubId ? { ...c, specialRequirementDone: isDone } : c));
     } catch (err) {
-      console.error("Failed to update status", err);
+      console.error('Failed to update status', err);
     }
   };
 
-  const uniqueClubs = Array.from(new Set(allEventsList.map(ev => ev.clubName))).sort();
-  const availableEventsForClub = allEventsList.filter(ev => ev.clubName === selectedClubName).sort((a,b) => a.eventName.localeCompare(b.eventName));
-
   const columns = [
-    { header: 'Club Name', accessorKey: 'clubName' },
-    { header: 'Event', accessorKey: 'eventName' },
-    { header: 'Location', accessorKey: 'location' },
+    { header: 'Club Name', cell: (row) => row.name || row.clubName || '—' },
     { 
       header: 'Special Requirements', 
       cell: (row) => (
@@ -89,12 +82,15 @@ export default function RequirementsPage() {
       header: 'Done',
       align: 'center',
       cell: (row) => (
-        <input 
-          type="checkbox" 
-          checked={row.specialRequirementDone || false} 
-          onChange={(e) => handleToggleDone(row.id, e.target.checked)} 
-          style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
-        />
+        <button
+          onClick={() => handleToggleDone(row.id, !row.specialRequirementDone)}
+          className={`custom-checkbox ${row.specialRequirementDone ? 'checked' : ''}`}
+          title={row.specialRequirementDone ? "Mark as Pending" : "Mark as Done"}
+        >
+          <span className="material-symbols-outlined">
+            {row.specialRequirementDone ? 'check_circle' : 'radio_button_unchecked'}
+          </span>
+        </button>
       )
     }
   ];
@@ -113,35 +109,25 @@ export default function RequirementsPage() {
       </div>
 
       {loading ? (
-        <p>Scanning intelligence...</p>
-      ) : events.length === 0 ? (
+        <p>Loading requirements...</p>
+      ) : clubs.length === 0 ? (
         <div className="empty-state glass-panel">
           <span className="material-symbols-outlined icon">check_circle</span>
-          <p>No special requirements documented for upcoming events.</p>
+          <p>No special requirements documented.</p>
         </div>
       ) : (
-         <DataTable columns={columns} data={events} />
+         <DataTable columns={columns} data={clubs} />
       )}
 
       {/* --- Log Requirement Modal --- */}
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedClubName(''); setSelectedEventId(''); setNewRequirementText(''); }} title="Log Special Requirement">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedClubId(''); setNewRequirementText(''); }} title="Log Special Requirement">
         <form onSubmit={handleAddRequirement} className="req-form">
           <div className="form-group">
             <label>Select Club</label>
-            <select value={selectedClubName} onChange={(e) => { setSelectedClubName(e.target.value); setSelectedEventId(''); }} required>
+            <select value={selectedClubId} onChange={(e) => setSelectedClubId(e.target.value)} required>
               <option value="" disabled>-- Select a Club --</option>
-              {uniqueClubs.map(club => (
-                <option key={club} value={club}>{club}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label>Select Event</label>
-            <select value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)} required disabled={!selectedClubName}>
-              <option value="" disabled>-- Select an Event --</option>
-              {availableEventsForClub.map(ev => (
-                <option key={ev.id} value={ev.id}>{ev.eventName}</option>
+              {allClubs.map(club => (
+                <option key={club.id} value={club.id}>{club.name}</option>
               ))}
             </select>
           </div>
@@ -159,7 +145,7 @@ export default function RequirementsPage() {
           
           <div className="form-actions">
              <button type="button" className="btn-secondary fade-btn" onClick={() => setIsModalOpen(false)} disabled={actionLoading}>Cancel</button>
-             <button type="submit" className="btn-primary primary-gradient" disabled={actionLoading || !selectedEventId || !newRequirementText.trim()}>
+             <button type="submit" className="btn-primary primary-gradient" disabled={actionLoading || !selectedClubId || !newRequirementText.trim()}>
                {actionLoading ? 'Saving...' : 'Confirm Requirement'}
              </button>
           </div>
@@ -227,6 +213,34 @@ export default function RequirementsPage() {
         .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; }
         .btn-secondary { padding: 0.625rem 1.25rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; background: transparent; border: 1px solid var(--outline-variant); color: var(--on-surface); }
         .btn-primary { padding: 0.625rem 1.25rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; border: none; color: white; }
+        
+        /* Custom Checkbox */
+        .custom-checkbox {
+          background: transparent;
+          border: none;
+          color: var(--outline);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.25rem;
+          border-radius: 50%;
+          transition: all 0.2s ease;
+        }
+        .custom-checkbox:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--on-surface);
+        }
+        .custom-checkbox.checked {
+          color: var(--success, #64dc8c);
+        }
+        .custom-checkbox.checked:hover {
+          background: rgba(100, 220, 140, 0.1);
+          color: #8be4a8;
+        }
+        .custom-checkbox .material-symbols-outlined {
+          font-size: 1.5rem;
+        }
       `}</style>
     </Layout>
   );

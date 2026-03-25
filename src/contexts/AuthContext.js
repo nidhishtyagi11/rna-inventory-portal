@@ -2,14 +2,15 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, provider, db } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // 'admin' | 'user' | null
+  const [role, setRole] = useState(null); // 'admin' | 'club' | null
+  const [clubData, setClubData] = useState(null); // Populated when a club logs in
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,7 +34,11 @@ export function AuthProvider({ children }) {
           }
         }
       } else {
-        setRole(null);
+        // Keep club session alive across firebase re-renders (club login is Firestore-only, not Firebase Auth)
+        // We don't clear clubData here — only logout() does
+        if (!clubData) {
+          setRole(null);
+        }
       }
       setLoading(false);
     });
@@ -49,19 +54,35 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Club/Dept Admin login — looks up credentials directly in Firestore clubs collection
   const loginWithUsernamePassword = async (username, password) => {
     if (!username || !password) throw new Error("Empty credentials");
-    const fakeEmail = `${username.toLowerCase().replace(/\s+/g, '')}@recnacc.portal`;
     try {
-      await signInWithEmailAndPassword(auth, fakeEmail, password);
+      const clubsSnap = await getDocs(collection(db, 'clubs'));
+      const match = clubsSnap.docs.find(d => {
+        const data = d.data();
+        return data.username === username && data.password === password;
+      });
+      if (!match) {
+        throw new Error("Invalid username or password.");
+      }
+      const club = { id: match.id, ...match.data() };
+      setClubData(club);
+      setRole('club');
+      setUser({ uid: match.id, displayName: club.name, isClub: true });
     } catch (error) {
-      console.error("Error signing in with username", error);
+      console.error("Club login error:", error);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
+      // Clear club session
+      setClubData(null);
+      setRole(null);
+      setUser(null);
+      // Also sign out of Firebase Auth if there is a Google session
       await signOut(auth);
     } catch (error) {
       console.error("Error signing out", error);
@@ -69,7 +90,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, loginWithGoogle, loginWithUsernamePassword, logout }}>
+    <AuthContext.Provider value={{ user, role, clubData, loading, loginWithGoogle, loginWithUsernamePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

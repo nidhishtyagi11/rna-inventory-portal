@@ -12,9 +12,8 @@ export default function Sidebar() {
     { name: 'Dashboard', path: '/admin/dashboard', icon: 'grid_view' },
     { name: 'Inventory', path: '/admin/inventory', icon: 'inventory_2' },
     { name: 'Transactions', path: '/admin/transactions', icon: 'sync_alt' },
-    { name: 'Requirements', path: '/admin/requirements', icon: 'priority_high' },
+    { name: 'Requirements', path: '/admin/requirements', icon: 'star' },
     { name: 'Tickets', path: '/admin/tickets', icon: 'confirmation_number' },
-    { name: 'CSV Upload', path: '/admin/upload', icon: 'upload_file' },
   ];
 
   const userLinks = [
@@ -54,6 +53,13 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="sidebar-footer">
+        {role === 'admin' && (
+          <Link href="/admin/upload" className={`nav-item ${pathname === '/admin/upload' ? 'active' : ''}`}>
+            <span className="material-symbols-outlined icon">upload_file</span>
+            <span className="nav-label">CSV Upload</span>
+            {pathname === '/admin/upload' && <span className="active-pip" />}
+          </Link>
+        )}
         <button onClick={logout} className="nav-item logout-btn">
           <span className="material-symbols-outlined icon">logout</span>
           <span className="nav-label">Sign Out</span>
