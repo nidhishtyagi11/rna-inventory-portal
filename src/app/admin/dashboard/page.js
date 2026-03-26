@@ -20,7 +20,8 @@ export default function AdminDashboard() {
   const [viewMode, setViewMode] = useState('clubs'); // 'clubs' | 'events'
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('All');
-  const [issuingFilters, setIssuingFilters] = useState(['Fully Issued', 'Partially Issued', 'Not Issued', 'N/A']);
+  const [issuingFilters, setIssuingFilters] = useState(['Fully Issued', 'Partially Issued', 'Not Issued']);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const router = useRouter();
 
@@ -234,20 +235,32 @@ export default function AdminDashboard() {
               
               <div style={{display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 1}}>
                 {viewMode === 'clubs' && (
-                  <div className="status-filters">
-                    {['Fully Issued', 'Partially Issued', 'Not Issued', 'N/A'].map(status => (
-                      <label key={status} className="status-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={issuingFilters.includes(status)}
-                          onChange={(e) => {
-                            if (e.target.checked) setIssuingFilters([...issuingFilters, status]);
-                            else setIssuingFilters(issuingFilters.filter(s => s !== status));
-                          }}
-                        />
-                        {status}
-                      </label>
-                    ))}
+                  <div className="status-filters-dropdown" style={{position: 'relative'}}>
+                    <button 
+                      className="dashboard-select" 
+                      onClick={() => setIsFilterOpen(!isFilterOpen)}
+                      style={{display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', minWidth: 'auto'}}
+                    >
+                      <span className="material-symbols-outlined" style={{fontSize: '1rem'}}>filter_list</span>
+                      Filters {issuingFilters.length > 0 && `(${issuingFilters.length})`}
+                    </button>
+                    {isFilterOpen && (
+                      <div className="status-dropdown-menu">
+                        {['Fully Issued', 'Partially Issued', 'Not Issued'].map(status => (
+                          <label key={status} className="status-checkbox">
+                            <input 
+                              type="checkbox" 
+                              checked={issuingFilters.includes(status)}
+                              onChange={(e) => {
+                                if (e.target.checked) setIssuingFilters([...issuingFilters, status]);
+                                else setIssuingFilters(issuingFilters.filter(s => s !== status));
+                              }}
+                            />
+                            {status}
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -345,7 +358,10 @@ export default function AdminDashboard() {
               </h3>
               <div className="inventory-list">
                 {sortedInventory.length === 0 ? (
-                   <p className="text-muted">No vital assets tracked.</p>
+                   <div style={{padding: '1rem', textAlign: 'center'}}>
+                     <span className="material-symbols-outlined" style={{color: 'var(--outline)', fontSize: '2rem', marginBottom: '0.25rem'}}>inventory</span>
+                     <p className="text-muted">0 depleted items</p>
+                   </div>
                 ) : (
                    sortedInventory.slice(0, 6).map(inv => {
                      return (
@@ -353,7 +369,7 @@ export default function AdminDashboard() {
                            <div className="inv-header">
                               <span className="inv-name">
                                 {inv.itemName}
-                                <span className="depleted-badge">Depleted</span>
+                                <Badge variant="error" style={{marginLeft: '0.25rem'}}>DEPLETED</Badge>
                               </span>
                               <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                                 <span className="inv-count">{inv.available} left</span>
@@ -403,7 +419,7 @@ export default function AdminDashboard() {
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
         .table-full-width { margin-bottom: 2.5rem; border-bottom: 1px solid var(--surface-container); padding-bottom: 2rem; }
         
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--surface-container-high); flex-wrap: nowrap; overflow-x: auto; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--surface-container-high); flex-wrap: nowrap; }
         .badge-outline { font-size: 0.75rem; color: var(--outline); font-weight: 600; padding: 0.25rem 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Space Grotesk', sans-serif; white-space: nowrap; }
         
         /* Dashboard Toggle & Input Styles */
@@ -464,11 +480,20 @@ export default function AdminDashboard() {
           background: var(--surface-container-low);
         }
         
-        .status-filters {
+        .status-dropdown-menu {
+          position: absolute;
+          top: 115%;
+          left: 0;
+          background: var(--surface-container-highest);
+          border: 1px solid var(--outline-variant);
+          border-radius: 0.5rem;
+          padding: 0.75rem;
           display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-right: 0.5rem;
+          flex-direction: column;
+          gap: 0.75rem;
+          z-index: 100;
+          min-width: 170px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.8);
         }
         .status-checkbox {
           display: flex;
@@ -508,7 +533,6 @@ export default function AdminDashboard() {
         .quick-inv-item:last-child { border-bottom: none; }
         .inv-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; }
         .inv-name { color: var(--on-surface); font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 0.5rem;}
-        .depleted-badge { background: rgba(255, 180, 171, 0.15); color: var(--error); padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.6rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; font-family: 'Space Grotesk', sans-serif; }
         .inv-count { color: var(--outline); font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem; font-weight: 500;}
 
         /* Ticket Styles */

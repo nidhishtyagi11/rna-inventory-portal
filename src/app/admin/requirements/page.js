@@ -82,15 +82,31 @@ export default function RequirementsPage() {
       header: 'Done',
       align: 'center',
       cell: (row) => (
-        <button
+        <div
           onClick={() => handleToggleDone(row.id, !row.specialRequirementDone)}
-          className={`custom-checkbox ${row.specialRequirementDone ? 'checked' : ''}`}
           title={row.specialRequirementDone ? "Mark as Pending" : "Mark as Done"}
+          style={{
+            width: '24px',
+            height: '24px',
+            minWidth: '24px',
+            minHeight: '24px',
+            border: `2px solid ${row.specialRequirementDone ? 'var(--primary)' : 'var(--outline)'}`,
+            borderRadius: '4px',
+            backgroundColor: row.specialRequirementDone ? 'var(--primary)' : 'transparent',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            margin: '0 auto'
+          }}
         >
-          <span className="material-symbols-outlined">
-            {row.specialRequirementDone ? 'check_circle' : 'radio_button_unchecked'}
-          </span>
-        </button>
+          {row.specialRequirementDone && (
+            <svg viewBox="0 0 24 24" fill="none" style={{ width: '16px', height: '16px', color: 'var(--on-primary)' }}>
+              <path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
       )
     }
   ];
@@ -214,33 +230,7 @@ export default function RequirementsPage() {
         .btn-secondary { padding: 0.625rem 1.25rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; background: transparent; border: 1px solid var(--outline-variant); color: var(--on-surface); }
         .btn-primary { padding: 0.625rem 1.25rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; border: none; color: white; }
         
-        /* Custom Checkbox */
-        .custom-checkbox {
-          background: transparent;
-          border: none;
-          color: var(--outline);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.25rem;
-          border-radius: 50%;
-          transition: all 0.2s ease;
-        }
-        .custom-checkbox:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--on-surface);
-        }
-        .custom-checkbox.checked {
-          color: var(--success, #64dc8c);
-        }
-        .custom-checkbox.checked:hover {
-          background: rgba(100, 220, 140, 0.1);
-          color: #8be4a8;
-        }
-        .custom-checkbox .material-symbols-outlined {
-          font-size: 1.5rem;
-        }
+        /* Custom styles have been shifted to inline properties. */
       `}</style>
     </Layout>
   );
