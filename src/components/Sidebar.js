@@ -4,8 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+
 export default function Sidebar({ isMobileOpen, onClose }) {
-  const { role, logout, user } = useAuth();
+  const { role, logout, user, clubData } = useAuth();
   const pathname = usePathname();
 
   const adminLinks = [
@@ -18,9 +19,8 @@ export default function Sidebar({ isMobileOpen, onClose }) {
 
   const userLinks = [
     { name: 'Dashboard', path: '/user/dashboard', icon: 'dashboard' },
-    { name: 'Inventory', path: '/user/inventory', icon: 'inventory_2' },
-    { name: 'My Requests', path: '/user/requests', icon: 'assignment_turned_in' },
-    { name: 'Support', path: '/user/support', icon: 'support_agent' },
+    { name: 'Transactions', path: '/user/transactions', icon: 'sync_alt' },
+    { name: 'Tickets', path: '/user/tickets', icon: 'confirmation_number' },
   ];
 
   const links = role === 'admin' ? adminLinks : userLinks;
@@ -70,19 +70,31 @@ export default function Sidebar({ isMobileOpen, onClose }) {
           <span className="nav-label">Sign Out</span>
         </button>
 
-        <div className="user-card">
-          <div className="user-avatar">
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="avatar-img" />
-            ) : (
-              <span className="material-symbols-outlined avatar-placeholder">account_circle</span>
-            )}
+        {role === 'admin' ? (
+          <div className="user-card">
+            <div className="user-avatar">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="avatar" className="avatar-img" />
+              ) : (
+                <span className="material-symbols-outlined avatar-placeholder">account_circle</span>
+              )}
+            </div>
+            <div className="user-info">
+              <span className="user-name">{user?.displayName || 'User'}</span>
+              <span className="user-email">{user?.email}</span>
+            </div>
           </div>
-          <div className="user-info">
-            <span className="user-name">{user?.displayName || 'User'}</span>
-            <span className="user-email">{user?.email}</span>
+        ) : clubData ? (
+          <div className="user-card">
+            <div className="club-avatar-icon">
+              <span className="material-symbols-outlined" style={{fontSize: '1.5rem', color: 'var(--primary)'}}>groups</span>
+            </div>
+            <div className="user-info">
+              <span className="user-name">{clubData.name}</span>
+              <span className="user-email">Club Coordinator</span>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="role-row" style={{ justifyContent: 'center', marginTop: '1rem', marginBottom: 0 }}>
           <span className="level-badge" style={{ fontSize: '0.55rem' }}>Made with &lt;3 by Nidhish</span>
@@ -250,6 +262,14 @@ export default function Sidebar({ isMobileOpen, onClose }) {
         }
         .user-avatar {
           flex-shrink: 0;
+        }
+        .club-avatar-icon {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .avatar-img {
           width: 32px;
