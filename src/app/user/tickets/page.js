@@ -38,7 +38,15 @@ export default function UserTickets() {
     fetchData();
   }, [clubData]);
 
-  const filtered = tickets.filter(t => statusFilter === 'All' || t.status === statusFilter);
+  const isResolved = (t) => t.status === 'Resolved' || t.status === 'Closed';
+  const isOpen = (t) => !isResolved(t);
+
+  const filtered = tickets.filter(t => {
+    if (statusFilter === 'All') return true;
+    if (statusFilter === 'Open') return isOpen(t);
+    if (statusFilter === 'Resolved') return isResolved(t);
+    return true;
+  });
 
   const formatDate = (ts) => {
     if (!ts?.toDate) return '—';
@@ -58,7 +66,7 @@ export default function UserTickets() {
     },
     {
       header: 'Status',
-      cell: (row) => <Badge variant={row.status === 'Open' ? 'error' : 'success'}>{row.status}</Badge>
+      cell: (row) => <Badge variant={isOpen(row) ? 'error' : 'success'}>{isOpen(row) ? 'Open' : 'Resolved'}</Badge>
     },
     { header: 'Description', cell: (row) => (
       <span style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', maxWidth: '400px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
