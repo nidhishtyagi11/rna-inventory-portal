@@ -402,6 +402,11 @@ export default function AdminDashboard() {
                            <span className="material-symbols-outlined icon-tiny">location_on</span>
                            {t.location || 'Unknown Location'}
                          </span>
+                         {t.clubName && (
+                           <span className="ticket-club" style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', fontWeight: '600', fontFamily: 'Inter, sans-serif' }}>
+                             {t.clubName}
+                           </span>
+                         )}
                        </div>
                        <p className="ticket-desc">{t.description}</p>
                     </div>
@@ -539,7 +544,7 @@ export default function AdminDashboard() {
         .ticket-list { display: flex; flex-direction: column; gap: 1rem; }
         .ticket-item { padding-bottom: 1rem; border-bottom: 1px solid var(--surface-container); }
         .ticket-item:last-child { border-bottom: none; padding-bottom: 0; }
-        .ticket-header { display: flex; margin-bottom: 0.5rem; align-items: center; }
+        .ticket-header { display: flex; margin-bottom: 0.5rem; align-items: center; justify-content: space-between; gap: 0.5rem; }
         .ticket-location { font-size: 0.75rem; color: var(--primary); display: flex; align-items: center; gap: 0.25rem; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase;}
         .icon-tiny { font-size: 0.875rem; }
         .ticket-desc { font-size: 0.875rem; color: var(--on-surface); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

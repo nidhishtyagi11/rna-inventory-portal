@@ -20,10 +20,12 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('Open');
 
-  // Search / location filter
+  // Search / location / type filter
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('All');
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
   // Raise ticket modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,6 +104,9 @@ export default function TicketsPage() {
     // Location filter
     if (locationFilter !== 'All') result = result.filter(t => t.location === locationFilter);
 
+    // Type filter
+    if (typeFilter !== 'All') result = result.filter(t => t.ticketType === typeFilter);
+
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -113,7 +118,7 @@ export default function TicketsPage() {
       );
     }
     return result;
-  }, [sortedTickets, filterStatus, locationFilter, searchQuery]);
+  }, [sortedTickets, filterStatus, locationFilter, typeFilter, searchQuery]);
 
   // Event search for modal
   const modalFilteredEvents = events.filter(ev => {
@@ -272,6 +277,33 @@ export default function TicketsPage() {
               {uniqueLocations.length === 0 && (
                 <span className="location-empty">No locations available</span>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Type filter dropdown */}
+        <div className="location-filter-wrapper">
+          <button
+            className="dashboard-select"
+            onClick={() => setIsTypeDropdownOpen(v => !v)}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>category</span>
+            Type {typeFilter !== 'All' && `· ${typeFilter}`}
+          </button>
+          {isTypeDropdownOpen && (
+            <div className="location-dropdown">
+              {['All', ...TICKET_TYPES.map(t => t.id)].map(type => (
+                <button
+                  key={type}
+                  className={`location-option ${typeFilter === type ? 'selected' : ''}`}
+                  onClick={() => { setTypeFilter(type); setIsTypeDropdownOpen(false); }}
+                >
+                  {type === 'All' ? 'All Types' : type}
+                  {typeFilter === type && (
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', marginLeft: 'auto' }}>check</span>
+                  )}
+                </button>
+              ))}
             </div>
           )}
         </div>
