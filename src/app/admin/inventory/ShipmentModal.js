@@ -21,12 +21,20 @@ export default function ShipmentModal({ isOpen, onClose, inventoryItems, onShipm
       }));
       
       if (inventoryItems) {
-        const initialItems = inventoryItems.map(inv => ({
-          itemId: inv.id,
-          itemName: inv.itemName,
-          totalStock: inv.totalStock || 0,
-          quantity: ''
-        }));
+        const initialItems = inventoryItems.map(inv => {
+          const total = inv.totalStock || 0;
+          const issued = inv.issuedStock || 0;
+          const returned = inv.returnedStock || 0;
+          const available = total - issued + returned;
+          
+          return {
+            itemId: inv.id,
+            itemName: inv.itemName,
+            totalStock: total,
+            availableStock: available,
+            quantity: ''
+          };
+        });
         setItems(initialItems);
       }
     }
@@ -105,14 +113,14 @@ export default function ShipmentModal({ isOpen, onClose, inventoryItems, onShipm
           <div className="items-table">
             <div className="grid-header">
                <span>ITEM</span>
-               <span style={{textAlign: 'center'}}>STOCK</span>
+               <span style={{textAlign: 'center'}}>AVAIL. STOCK</span>
                <span style={{textAlign: 'right', paddingRight: '0.2rem'}}>QTY ADDED</span>
             </div>
             <div className="grid-body">
               {items.slice(0, Math.ceil(items.length / 2)).map((item) => (
                 <div key={item.itemId} className="grid-row">
                   <span className="item-name">{item.itemName}</span>
-                  <span className="item-stock">{item.totalStock}</span>
+                  <span className="item-stock" title="Available Stock">{item.availableStock}</span>
                   <input 
                     type="number" 
                     value={item.quantity} 
@@ -129,14 +137,14 @@ export default function ShipmentModal({ isOpen, onClose, inventoryItems, onShipm
           <div className="items-table">
             <div className="grid-header">
                <span>ITEM</span>
-               <span style={{textAlign: 'center'}}>STOCK</span>
+               <span style={{textAlign: 'center'}}>AVAIL. STOCK</span>
                <span style={{textAlign: 'right', paddingRight: '0.2rem'}}>QTY ADDED</span>
             </div>
             <div className="grid-body">
               {items.slice(Math.ceil(items.length / 2)).map((item) => (
                 <div key={item.itemId} className="grid-row">
                   <span className="item-name">{item.itemName}</span>
-                  <span className="item-stock">{item.totalStock}</span>
+                  <span className="item-stock" title="Available Stock">{item.availableStock}</span>
                   <input 
                     type="number" 
                     value={item.quantity} 
