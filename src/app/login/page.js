@@ -94,7 +94,6 @@ export default function LoginPage() {
             APOGEE 2026
             <span className="live-dot pulse"></span>
           </span>
-          <span>&copy; NIDHISH</span>
         </div>
       </div>
 

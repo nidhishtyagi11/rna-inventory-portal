@@ -10,6 +10,7 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('All');
+  const [searchClub, setSearchClub] = useState('');
 
   const fetchData = async () => {
     try {
@@ -41,9 +42,14 @@ export default function TransactionsPage() {
     }
   };
 
-  const filteredTx = filterType === 'All' 
-    ? transactions 
-    : transactions.filter(t => t.type === filterType);
+  const filteredTx = transactions.filter(t => {
+    const typeMatch = filterType === 'All' || t.type === filterType;
+    if (!typeMatch) return false;
+    
+    if (!searchClub) return true;
+    const clubName = t.clubName || 'System / Incoming';
+    return clubName.toLowerCase().includes(searchClub.toLowerCase());
+  });
 
   const columns = [
     { 
@@ -103,14 +109,27 @@ export default function TransactionsPage() {
           <p className="subtitle">Showing {filteredTx.length} records</p>
         </div>
         
-        <div className="filter-group">
-          <label>Filter Type:</label>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="All">All Transactions</option>
-            <option value="Issuance">Issuance</option>
-            <option value="Return">Return</option>
-            <option value="Incoming">Incoming Stock</option>
-          </select>
+        <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+          <div className="search-bar-wrap">
+            <span className="material-symbols-outlined search-icon">search</span>
+            <input 
+              type="text"
+              placeholder="Search clubs..."
+              value={searchClub}
+              onChange={(e) => setSearchClub(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          
+          <div className="filter-group">
+            <label>Filter Type:</label>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <option value="All">All Transactions</option>
+              <option value="Issuance">Issuance</option>
+              <option value="Return">Return</option>
+              <option value="Incoming">Incoming Stock</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -153,10 +172,15 @@ export default function TransactionsPage() {
           font-family: 'Inter', sans-serif;
           outline: none;
         }
+        }
         select:focus {
           border-color: var(--primary);
         }
-        }
+
+        .search-bar-wrap { position: relative; }
+        .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--outline); font-size: 1.25rem; pointer-events: none; }
+        .search-input { padding: 0.5rem 1rem 0.5rem 2.25rem; border-radius: 0.5rem; border: 1px solid var(--outline-variant); background: var(--surface-container-highest); color: var(--on-surface); font-family: 'Inter', sans-serif; width: 200px; font-size: 0.875rem;}
+        .search-input:focus { outline: none; border-color: var(--primary); }
       `}</style>
       <style jsx global>{`
         .action-pill {
