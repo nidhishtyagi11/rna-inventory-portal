@@ -141,9 +141,9 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
         {isUnrequested && (
           <div className="warning-box info-box">
              <span className="material-symbols-outlined warning-icon">info</span>
-             <div>
+              <div>
                <strong>Not Requested Item</strong>
-               <p>This item was not included in the club's originally assigned inventory.</p>
+               <p>This item was not included in the club&apos;s originally assigned inventory.</p>
              </div>
           </div>
         )}
@@ -153,7 +153,7 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
              <span className="material-symbols-outlined warning-icon">warning</span>
              <div>
                <strong>Over Issue Warning</strong>
-               <p>You are issuing more than the club's remaining requested allocation ({requested - netIssued} left).</p>
+               <p>You are issuing more than the club&apos;s remaining requested allocation ({requested - netIssued} left).</p>
              </div>
           </div>
         )}
