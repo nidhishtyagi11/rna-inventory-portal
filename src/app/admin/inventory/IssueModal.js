@@ -2,25 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
-import { updateStock, addTransaction, getClubs } from '@/lib/firestore';
+import { updateStock, addTransaction, getClubs, getTransactions } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
   const [quantity, setQuantity] = useState('');
   const [selectedClubId, setSelectedClubId] = useState('');
   const [clubs, setClubs] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
       getClubs().then(data => setClubs(data));
+      getTransactions().then(data => setTransactions(data));
     }
   }, [isOpen]);
 
   if (!item) return null;
 
   const available = (item.totalStock || 0) - (item.issuedStock || 0) + (item.returnedStock || 0);
+
+  const selectedClub = clubs.find(c => c.id === selectedClubId);
+  const requested = selectedClub?.inventoryRequests?.[item.itemName] ? parseInt(selectedClub.inventoryRequests[item.itemName], 10) : 0;
+  
+  const clubTx = transactions.filter(t => t.clubId === selectedClubId && t.itemName === item.itemName && !t.isUndone);
+  const alreadyIssued = clubTx.filter(t => t.type === 'Issuance').reduce((sum, t) => sum + (t.quantity || 0), 0);
+  const alreadyReturned = clubTx.filter(t => t.type === 'Return').reduce((sum, t) => sum + (t.quantity || 0), 0);
+  const netIssued = alreadyIssued - alreadyReturned;
+
+  const currentQty = parseInt(quantity, 10) || 0;
+  
+  const isUnrequested = selectedClub && requested === 0 && currentQty > 0;
+  const showWarning = selectedClub && requested > 0 && currentQty > (requested - netIssued);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,18 +105,23 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
 
         <div className="form-group">
            <label>Select Club</label>
-           <select 
-             value={selectedClubId} 
-             onChange={(e) => setSelectedClubId(e.target.value)}
+           <input 
+             list="club-options"
+             value={searchQuery}
+             onChange={(e) => {
+               setSearchQuery(e.target.value);
+               const match = clubs.find(c => c.name === e.target.value);
+               if (match) setSelectedClubId(match.id);
+               else setSelectedClubId('');
+             }}
+             placeholder="Search for a club by name..."
              required
-           >
-             <option value="" disabled>-- Choose a Club --</option>
+           />
+           <datalist id="club-options">
              {clubs.map(c => (
-               <option key={c.id} value={c.id}>
-                 {c.name}
-               </option>
+               <option key={c.id} value={c.name} />
              ))}
-           </select>
+           </datalist>
         </div>
 
         <div className="form-group">
@@ -116,6 +137,26 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
              disabled={available === 0}
            />
         </div>
+
+        {isUnrequested && (
+          <div className="warning-box info-box">
+             <span className="material-symbols-outlined warning-icon">info</span>
+             <div>
+               <strong>Not Requested Item</strong>
+               <p>This item was not included in the club's originally assigned inventory.</p>
+             </div>
+          </div>
+        )}
+
+        {showWarning && (
+          <div className="warning-box">
+             <span className="material-symbols-outlined warning-icon">warning</span>
+             <div>
+               <strong>Over Issue Warning</strong>
+               <p>You are issuing more than the club's remaining requested allocation ({requested - netIssued} left).</p>
+             </div>
+          </div>
+        )}
 
         <div className="form-actions">
            <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
@@ -141,6 +182,28 @@ export default function IssueModal({ isOpen, onClose, item, onStockIssued }) {
         .btn-primary { border: none; }
         .btn-primary:active { transform: translateY(1px); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .warning-box {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          background-color: rgba(255, 202, 40, 0.1);
+          border: 1px solid rgba(255, 202, 40, 0.3);
+          padding: 1rem;
+          border-radius: 0.5rem;
+          color: var(--warning, #ffca28);
+          font-family: 'Inter', sans-serif;
+          font-size: 0.8rem;
+          line-height: 1.4;
+        }
+        .warning-icon { font-size: 1.25rem; }
+        .warning-box strong { display: block; margin-bottom: 0.2rem; color: #ffd54f; }
+        .warning-box p { margin: 0; color: rgba(255,255,255,0.85); }
+        .info-box {
+          background-color: rgba(171, 199, 255, 0.1);
+          border-color: rgba(171, 199, 255, 0.3);
+          color: #abc7fb;
+        }
+        .info-box strong { color: #abc7fb; }
       `}</style>
     </Modal>
   );

@@ -41,7 +41,7 @@ export default function ClubDetailPage({ params }) {
       const clubEvents = allEvents.filter(e => e.clubId === clubId);
       setEvents(clubEvents);
 
-      const clubTx = allTx.filter(t => t.clubId === clubId);
+      const clubTx = allTx.filter(t => t.clubId === clubId && !t.isUndone);
       clubTx.sort((a, b) => b.timestamp - a.timestamp);
       setTransactions(clubTx);
 
@@ -71,7 +71,12 @@ export default function ClubDetailPage({ params }) {
   let totalIss = 0;
   let totalRet = 0;
 
-  const itemBreakdown = Object.keys(requestedItems).map(itemName => {
+  const allItemNames = [...new Set([
+    ...Object.keys(requestedItems),
+    ...transactions.filter(t => !t.isUndone).map(t => t.itemName)
+  ])];
+
+  const itemBreakdown = allItemNames.map(itemName => {
     const requested = parseInt(requestedItems[itemName], 10) || 0;
     const itemTx = transactions.filter(t => t.itemName === itemName && !t.isUndone);
     const issued = itemTx.filter(t => t.type === 'Issuance').reduce((sum, t) => sum + (t.quantity || 0), 0);
@@ -83,8 +88,13 @@ export default function ClubDetailPage({ params }) {
 
     let dotColor = 'var(--error)'; // not issued
     if (requested > 0 && issued >= requested && returned >= issued) dotColor = '#abc7fb'; // fully returned
-    else if (issued >= requested) dotColor = 'var(--success, #64dc8c)'; // fully
+    else if (issued >= requested && requested > 0) dotColor = 'var(--success, #64dc8c)'; // fully
     else if (issued > 0) dotColor = 'var(--warning, #ffca28)'; // partial
+
+    if (requested === 0) {
+       if (returned >= issued && issued > 0) dotColor = '#abc7fb';
+       else if (issued > 0) dotColor = 'var(--warning, #ffca28)';
+    }
 
     const invItem = inventory.find(i => i.itemName === itemName);
     let available = 0;
@@ -94,6 +104,9 @@ export default function ClubDetailPage({ params }) {
 
     return { itemName, requested, issued, returned, dotColor, available };
   });
+
+  const requestedBreakdown = itemBreakdown.filter(item => item.requested > 0);
+  const unrequestedBreakdown = itemBreakdown.filter(item => item.requested === 0 && item.issued > 0);
 
   const handleActionInputChange = (itemName, val) => {
     setActionAmounts(prev => ({
@@ -161,6 +174,16 @@ export default function ClubDetailPage({ params }) {
     setActionLoading(false);
   };
 
+  const isOverIssuing = itemBreakdown.some(item => {
+    const inputVal = parseInt(actionAmounts[item.itemName], 10);
+    if (!isNaN(inputVal) && inputVal > 0) {
+      const netIssued = item.issued - item.returned;
+      // If netIssued + inputVal exceeds requested amount, it's an over-issue
+      return (netIssued + inputVal) > item.requested;
+    }
+    return false;
+  });
+
   const itemColumns = [
     { 
       header: 'Status', 
@@ -181,7 +204,6 @@ export default function ClubDetailPage({ params }) {
         <input 
           type="number"
           min="0"
-          max={row.requested}
           value={actionAmounts[row.itemName] || ''}
           onChange={(e) => handleActionInputChange(row.itemName, e.target.value)}
           className="inline-action-input"
@@ -237,25 +259,53 @@ export default function ClubDetailPage({ params }) {
 
           <div className="section-header">
             <h2 className="headline" style={{fontSize: '1.25rem'}}>Assigned Inventory</h2>
-            <span className="badge-outline">{itemBreakdown.length} ITEM TYPES</span>
+            <span className="badge-outline">{requestedBreakdown.length} ITEM TYPES</span>
           </div>
-          {itemBreakdown.length === 0 ? (
-            <div style={{padding: '2rem', border: '1px solid var(--surface-container)', borderRadius: '0.5rem', color: 'var(--outline)'}}>
-              No inventory requests found for this club.
+          {requestedBreakdown.length === 0 ? (
+            <div style={{padding: '2rem', border: '1px solid var(--surface-container)', borderRadius: '0.5rem', color: 'var(--outline)', marginBottom: '2rem'}}>
+              No assigned inventory requests found for this club.
             </div>
           ) : (
-            <div className="table-container-wrap">
-              <DataTable columns={itemColumns} data={itemBreakdown} />
-              <div className="table-actions-footer">
-                <button className="btn-secondary fade-btn" onClick={() => handleBulkAction('Return')} disabled={actionLoading}>
-                  Return Inventory
-                </button>
-                <button className="btn-primary primary-gradient" onClick={() => handleBulkAction('Issue')} disabled={actionLoading}>
-                  {actionLoading ? 'Processing...' : 'Issue Inventory'}
-                </button>
-              </div>
+            <div className="table-container-wrap" style={{marginBottom: '2rem'}}>
+              <DataTable columns={itemColumns} data={requestedBreakdown} />
             </div>
           )}
+
+          {unrequestedBreakdown.length > 0 && (
+            <>
+              <div className="section-header">
+                <h2 className="headline" style={{fontSize: '1.25rem', color: 'var(--warning, #ffca28)'}}>Not Requested But Issued</h2>
+                <span className="badge-outline">{unrequestedBreakdown.length} ITEM TYPES</span>
+              </div>
+              <div className="table-container-wrap" style={{marginBottom: '2rem'}}>
+                <DataTable columns={itemColumns} data={unrequestedBreakdown} />
+              </div>
+            </>
+          )}
+
+          {isOverIssuing && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: '0.75rem', 
+              backgroundColor: 'rgba(255, 202, 40, 0.1)', border: '1px solid rgba(255, 202, 40, 0.3)', 
+              padding: '1rem', borderRadius: '0.5rem', color: 'var(--warning, #ffca28)', 
+              fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', lineHeight: '1.4', marginBottom: '1rem'
+            }}>
+               <span className="material-symbols-outlined" style={{fontSize: '1.25rem'}}>warning</span>
+               <div>
+                 <strong style={{display: 'block', marginBottom: '0.2rem', color: '#ffd54f'}}>Over Issue Warning</strong>
+                 <p style={{margin: 0, color: 'rgba(255,255,255,0.85)'}}>You are issuing more inventory than what was originally assigned/requested for one or more items.</p>
+               </div>
+            </div>
+          )}
+
+          <div className="table-actions-footer">
+            <button className="btn-secondary fade-btn" onClick={() => handleBulkAction('Return')} disabled={actionLoading}>
+              Return Inventory
+            </button>
+            <button className="btn-primary primary-gradient" onClick={() => handleBulkAction('Issue')} disabled={actionLoading}>
+              {actionLoading ? 'Processing...' : 'Issue Inventory'}
+            </button>
+          </div>
         </div>
 
         <div className="side-col">
@@ -317,7 +367,6 @@ export default function ClubDetailPage({ params }) {
                       </p>
                       <div className="timeline-meta">
                         <span className="timeline-time">{t.timestamp ? new Date(t.timestamp.seconds ? t.timestamp.seconds * 1000 : t.timestamp).toLocaleString() : 'Unknown time'}</span>
-                        {t.userName && <span className="timeline-user">{t.userName}</span>}
                       </div>
                     </div>
                   </div>

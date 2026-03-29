@@ -11,6 +11,7 @@ import ShipmentModal from './ShipmentModal';
 
 export default function InventoryPage() {
   const [inventory, setInventory] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
   // Modals state
@@ -81,6 +82,7 @@ export default function InventoryPage() {
       ...item,
       total,
       issued,
+      returned,
       available,
       status,
       variant
@@ -90,8 +92,18 @@ export default function InventoryPage() {
   const columns = [
     { header: 'Item Name', accessorKey: 'itemName' },
     { header: 'Total Base Stock', accessorKey: 'total', align: 'right' },
-    { header: 'Issued', accessorKey: 'issued', align: 'right' },
-    { header: 'Available', accessorKey: 'available', align: 'right' },
+    { 
+      header: <span style={{display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px'}}><span style={{color:'var(--outline)', fontSize:'1.1em', fontWeight:400}}>-</span> Issued</span>, 
+      accessorKey: 'issued', align: 'right' 
+    },
+    { 
+      header: <span style={{display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px'}}><span style={{color:'var(--outline)', fontSize:'1.1em', fontWeight:400}}>+</span> Returned</span>, 
+      accessorKey: 'returned', align: 'right' 
+    },
+    { 
+      header: <span style={{display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px'}}><span style={{color:'var(--outline)', fontSize:'1.1em', fontWeight:400}}>=</span> Available</span>, 
+      accessorKey: 'available', align: 'right' 
+    },
     { 
       header: 'Status', 
       cell: (row) => <Badge variant={row.variant}>{row.status}</Badge>
@@ -123,10 +135,22 @@ export default function InventoryPage() {
             Showing {totalItems} Items
           </p>
         </div>
-        <button className="primary-gradient action-btn" onClick={() => setShipmentModalOpen(true)}>
-          <span className="material-symbols-outlined">local_shipping</span>
-          Log Shipment
-        </button>
+        <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+          <div className="search-bar-wrap">
+            <span className="material-symbols-outlined search-icon">search</span>
+            <input 
+              type="text"
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          <button className="primary-gradient action-btn" onClick={() => setShipmentModalOpen(true)}>
+            <span className="material-symbols-outlined">local_shipping</span>
+            Log Shipment
+          </button>
+        </div>
       </div>
 
       <div className="metrics-row">
@@ -151,7 +175,10 @@ export default function InventoryPage() {
       {loading ? (
         <p>Loading inventory data...</p>
       ) : (
-        <DataTable columns={columns} data={tableData} />
+        <DataTable 
+          columns={columns} 
+          data={tableData.filter(item => item.itemName.toLowerCase().includes(searchTerm.toLowerCase()))} 
+        />
       )}
 
       {/* Modals */}
@@ -297,6 +324,10 @@ export default function InventoryPage() {
           display: flex;
           align-items: center;
         }
+        .search-bar-wrap { position: relative; }
+        .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--outline); font-size: 1.25rem; pointer-events: none; }
+        .search-input { padding: 0.75rem 1rem 0.75rem 2.5rem; border-radius: 0.5rem; border: 1px solid var(--outline-variant); background: var(--surface-container-high); color: var(--on-surface); font-family: 'Inter', sans-serif; width: 250px; }
+        .search-input:focus { outline: none; border-color: var(--primary); }
       `}</style>
     </Layout>
   );
