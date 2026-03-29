@@ -88,6 +88,8 @@ export default function UserDashboard() {
   };
 
   const itemData = aggregateInventory();
+  const requestedData = itemData.filter(item => item.requested > 0);
+  const unrequestedData = itemData.filter(item => item.requested === 0 && item.issued > 0);
 
   // --- KPI aggregations ---
   const totalRequested = itemData.reduce((s, i) => s + i.requested, 0);
@@ -138,13 +140,20 @@ export default function UserDashboard() {
 
           {/* Inventory Table */}
           <div className="section-block">
-            <h2 className="section-title">Inventory Overview</h2>
-            {itemData.length === 0 ? (
-              <div className="empty-state">No inventory requests found for your club.</div>
+            <h2 className="section-title">Assigned Inventory</h2>
+            {requestedData.length === 0 ? (
+              <div className="empty-state">No assigned inventory requests found for your club.</div>
             ) : (
-              <DataTable columns={columns} data={itemData} />
+              <DataTable columns={columns} data={requestedData} />
             )}
           </div>
+
+          {unrequestedData.length > 0 && (
+            <div className="section-block">
+              <h2 className="section-title" style={{color: 'var(--warning, #ffca28)'}}>Not Requested But Issued</h2>
+              <DataTable columns={columns} data={unrequestedData} />
+            </div>
+          )}
 
           <div className="bottom-grid">
             {/* Events & Active Tickets */}
