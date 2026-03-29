@@ -3,11 +3,13 @@
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 
 export default function Sidebar({ isMobileOpen, onClose }) {
   const { role, logout, user, clubData } = useAuth();
   const pathname = usePathname();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const adminLinks = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: 'grid_view' },
@@ -59,11 +61,31 @@ export default function Sidebar({ isMobileOpen, onClose }) {
       {/* Footer */}
       <div className="sidebar-footer">
         {role === 'admin' && (
-          <Link href="/admin/upload" className={`nav-item ${pathname === '/admin/upload' ? 'active' : ''}`}>
-            <span className="material-symbols-outlined icon">upload_file</span>
-            <span className="nav-label">CSV Upload</span>
-            {pathname === '/admin/upload' && <span className="active-pip" />}
-          </Link>
+          <div className="settings-group">
+            <button 
+              className={`nav-item ${pathname.startsWith('/admin/users') || pathname === '/admin/upload' ? 'active-group' : ''}`}
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            >
+              <span className="material-symbols-outlined icon">settings</span>
+              <span className="nav-label">Settings</span>
+              <span 
+                className="material-symbols-outlined dropdown-icon" 
+                style={{ transform: isSettingsOpen ? 'rotate(180deg)' : 'none' }}
+              >
+                expand_more
+              </span>
+            </button>
+            <div className={`sub-menu ${isSettingsOpen ? 'open' : ''}`}>
+              <Link href="/admin/users" className={`nav-item sub-item ${pathname === '/admin/users' ? 'active' : ''}`}>
+                <span className="material-symbols-outlined icon">manage_accounts</span>
+                <span className="nav-label">User Management</span>
+              </Link>
+              <Link href="/admin/upload" className={`nav-item sub-item ${pathname === '/admin/upload' ? 'active' : ''}`}>
+                <span className="material-symbols-outlined icon">upload_file</span>
+                <span className="nav-label">CSV Upload</span>
+              </Link>
+            </div>
+          </div>
         )}
         <button onClick={logout} className="nav-item logout-btn">
           <span className="material-symbols-outlined icon">logout</span>
@@ -247,6 +269,45 @@ export default function Sidebar({ isMobileOpen, onClose }) {
         .logout-btn:hover {
           background-color: rgba(242, 139, 130, 0.1);
           color: #f28b82;
+        }
+
+        /* --- Settings Dropdown --- */
+        .settings-group {
+          display: flex;
+          flex-direction: column;
+        }
+        .dropdown-icon {
+          font-size: 1.25rem;
+          color: var(--outline);
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sub-menu {
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+          margin-left: 1.25rem;
+          padding-left: 0.75rem;
+          border-left: 1px solid rgba(255,255,255,0.06);
+          overflow: hidden;
+          max-height: 0;
+          transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          opacity: 0;
+        }
+        .sub-menu.open {
+          max-height: 120px;
+          opacity: 1;
+          margin-top: 0.25rem;
+          margin-bottom: 0.25rem;
+        }
+        .sub-item {
+          padding: 0.5rem 0.75rem;
+          font-size: 0.75rem;
+        }
+        .sub-item .icon {
+          font-size: 1rem;
+        }
+        .active-group {
+          color: var(--on-surface);
         }
 
         /* --- User card --- */
